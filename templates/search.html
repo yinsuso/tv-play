@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}搜索结果 - 电影网站{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">搜索结果</h1>
+{% if keyword %}
+<p class="text-muted">搜索 "{{ keyword }}" 的结果，共 {{ total }} 部影片</p>
+{% endif %}
+
+{% if vod_list %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+    {% for vod in vod_list %}
+    <div class="col">
+        <div class="card movie-card bg-dark text-light h-100">
+            <a href="/play/{{ vod.get('vod_id') }}" class="text-decoration-none text-light">
+                <img src="{{ vod.get('vod_pic', 'https://via.placeholder.com/200x300') }}" class="card-img-top movie-poster" alt="{{ vod.get('vod_name') }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ vod.get('vod_name') }}</h5>
+                    <p class="card-text text-muted">{{ vod.get('vod_remarks') }}</p>
+                    <p class="card-text text-sm">{{ vod.get('type_name') }}</p>
+                </div>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if pagecount and pagecount > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if current_page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="/search?keyword={{ keyword }}&page={{ current_page - 1 }}">上一页</a>
+        </li>
+        {% endif %}
+        
+        <li class="page-item disabled">
+            <span class="page-link">第 {{ current_page }} / {{ pagecount }} 页</span>
+        </li>
+        
+        {% if current_page < pagecount %}
+        <li class="page-item">
+            <a class="page-link" href="/search?keyword={{ keyword }}&page={{ current_page + 1 }}">下一页</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="alert alert-info" role="alert">
+    没有找到相关影片，请尝试其他关键词。
+</div>
+{% endif %}
+{% endblock %}

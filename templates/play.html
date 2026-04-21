@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vod.get('vod_name') }} - 播放页{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card bg-dark text-light mb-4">
+            <div class="card-body">
+                <h2 class="card-title">{{ vod.get('vod_name') }}</h2>
+                <p class="card-text text-muted">{{ vod.get('vod_remarks') }}</p>
+                <p class="card-text">{{ vod.get('vod_class') }} | {{ vod.get('vod_area') }} | {{ vod.get('vod_year') }}</p>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="text-light me-2">播放源:</label>
+            {% if sources is defined and sources %}
+            {% for source in sources %}
+            <button class="btn btn-sm {% if current_source_name == source.name %}btn-primary{% else %}btn-secondary{% endif %} me-1" onclick="changeSource({{ loop.index0 }})">{{ source.name }}</button>
+            {% endfor %}
+            {% else %}
+            <span class="text-muted">暂无播放源</span>
+            {% endif %}
+        </div>
+
+        <div class="card bg-dark text-light">
+            <div class="card-body">
+                <div id="player-container">
+                    {% if play_url %}
+                    {% if is_m3u8_url(play_url) %}
+                    <video id="player" width="100%" height="450" controls class="w-100" poster="{{ vod.get('vod_pic') }}">
+                        <source src="{{ play_url }}" type="application/x-mpegURL">
+                        Your browser does not support HLS streaming.
+                    </video>
+                    {% else %}
+                    <iframe id="player" src="{{ play_url }}" width="100%" height="450" frameborder="0" allowfullscreen class="w-100"></iframe>
+                    {% endif %}
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center bg-black" style="height: 450px;">
+                        <p class="text-light">暂无播放链接</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header">剧集列表</div>
+            <div class="card-body">
+                {% if play_list %}
+                <div class="list-group">
+                    {% for item in play_list %}
+                    <a href="/play/{{ vod.get('vod_id') }}?n={{ item.get('n') }}" 
+                       class="list-group-item list-group-item-dark {% if item.get('n') == current_index %}active{% endif %}">
+                        {{ item.get('name') }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">暂无剧集</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+<script>
+    var sourcesData = {{ sources | tojson | safe }};
+    var currentHls = null;
+
+    function isM3u8Url(url) {
+        if (!url) return false;
+        var lowerUrl = url.toLowerCase();
+        return lowerUrl.includes('.m3u8') || lowerUrl.includes('hls') || lowerUrl.includes('mpegurl');
+    }
+
+    function setupHlsPlayer(videoElement, url) {
+        if (currentHls) {
+            currentHls.destroy();
+            currentHls = null;
+        }
+
+        if (Hls.isSupported()) {
+            var hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                maxBufferLength: 30
+            });
+            
+            hls.loadSource(url);
+            hls.attachMedia(videoElement);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                console.log('HLS manifest loaded');
+            });
+            
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                console.error('HLS error:', data);
+                if (data.fatal) {
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.error('Network error, trying to recover');
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.error('Media error, trying to recover');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            console.error('Fatal error, cannot recover');
+                            break;
+                    }
+                }
+            });
+            
+            currentHls = hls;
+        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+            videoElement.src = url;
+        } else {
+            console.error('HLS not supported in this browser');
+            videoElement.innerHTML = '<p class="text-center text-light">您的浏览器不支持HLS流媒体播放</p>';
+        }
+    }
+
+    function changeSource(index) {
+        if (!sourcesData[index] || !sourcesData[index].episodes || sourcesData[index].episodes.length === 0) {
+            console.error('无效的播放源');
+            return;
+        }
+
+        var url = sourcesData[index].episodes[0].url;
+        var container = document.getElementById('player-container');
+        
+        if (isM3u8Url(url)) {
+            container.innerHTML = `
+                <video id="player" width="100%" height="450" controls class="w-100" autoplay>
+                    <source src="${url}" type="application/x-mpegURL">
+                    Your browser does not support HLS streaming.
+                </video>
+            `;
+            var video = document.getElementById('player');
+            setupHlsPlayer(video, url);
+        } else {
+            if (currentHls) {
+                currentHls.destroy();
+                currentHls = null;
+            }
+            container.innerHTML = `
+                <iframe id="player" src="${url}" width="100%" height="450" frameborder="0" allowfullscreen class="w-100"></iframe>
+            `;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var video = document.getElementById('player');
+        var playUrl = "{{ play_url | safe }}";
+        
+        if (video && isM3u8Url(playUrl)) {
+            setupHlsPlayer(video, playUrl);
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,5 @@
+sanic
+sanic-jinja2
+requests
+redis
+aiomysql
