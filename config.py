@@ -1,5 +1,5 @@
-API_URL = "https://jszyapi.com/api.php/provide/vod/"
-#备选API https://dbzy.tv/api.php/provide/vod/
+API_URL = "" # 在此处填写影视资源API
+#备用API https://dbzy.tv/api.php/provide/vod/
 
 MYSQL_CONFIG = {
     'host': 'localhost',
